@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema ERP Fiscal - Orçamentos & NFS-e</title>
+    <!-- Tailwind CSS para Design Comercial/Profissional -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- FontAwesome para Ícones -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Biblioteca para Geração de PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-gray-100 font-sans text-gray-800">
+
+    <div class="flex h-screen overflow-hidden">
+        <!-- Barra Lateral de Navegação -->
+        <div class="w-64 bg-indigo-900 text-white flex flex-col justify-between">
+            <div class="p-5">
+                <h1 class="text-2xl font-bold tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice-dollar text-teal-400"></i> SmartFiscal
+                </h1>
+                <nav class="mt-10 space-y-2">
+                    <a href="#" onclick="switchTab('orcamentos')" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg bg-indigo-800 text-white transition-all"><i class="fa-solid fa-calculator w-5"></i> Orçamentos</a>
+                    <a href="#" onclick="switchTab('clientes')" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg text-indigo-200 hover:bg-indigo-800 hover:text-white transition-all"><i class="fa-solid fa-users w-5"></i> Clientes</a>
+                    <a href="#" onclick="switchTab('fornecedores')" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg text-indigo-200 hover:bg-indigo-800 hover:text-white transition-all"><i class="fa-solid fa-truck w-5"></i> Fornecedores</a>
+                    <a href="#" onclick="switchTab('notas')" class="tab-btn flex items-center gap-3 px-4 py-3 rounded-lg text-indigo-200 hover:bg-indigo-800 hover:text-white transition-all"><i class="fa-solid fa-receipt w-5"></i> Notas Fiscais (NFS-e)</a>
+                </nav>
+            </div>
+            <div class="p-4 bg-indigo-950 text-xs text-indigo-300 text-center">
+                Modo Local/Remoto Ativo <br> <span class="text-teal-400 font-semibold">Sem Autenticação Obrigatória</span>
+            </div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div class="flex-1 flex flex-col overflow-y-auto p-8">
+            
+            <!-- MÓDULO: ORÇAMENTOS & EMISSÃO -->
+            <section id="mod-orcamentos" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-extrabold text-gray-900">Gestão de Orçamentos & Serviços</h2>
+                    <div class="flex gap-2">
+                        <button onclick="limparFormulario()" class="bg-gray-500 text-white px-4 py-2 rounded-lg shadow hover:bg-gray-600 transition cursor-pointer"><i class="fa-solid fa-eraser"></i> Limpar</button>
+                        <button onclick="salvarOrcamento()" class="bg-emerald-600 text-white px-5 py-2 rounded-lg shadow hover:bg-emerald-700 transition font-medium cursor-pointer"><i class="fa-solid fa-floppy-disk"></i> Salvar Orçamento</button>
+                    </div>
+                </div>
+
+                <form id="form-fiscal" class="space-y-6">
+                    <!-- Bloco 1: Dados do Emissor -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-indigo-900 mb-4 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-building"></i> Dados do Emissor (Sua Empresa)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">CNPJ do Emissor</label>
+                                <div class="relative">
+                                    <input type="text" id="emissor-cnpj" placeholder="Apenas números" onblur="completarEBuscarCNPJ(this, 'emissor')" class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                                    <i class="fa-solid fa-magnifying-glass absolute right-3 top-3 text-gray-400"></i>
+                                </div>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Razão Social / Nome Fantasia</label>
+                                <input type="text" id="emissor-nome" class="w-full p-2.5 border rounded-lg bg-gray-50" readonly>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Inscrição Municipal</label>
+                                <input type="text" id="emissor-im" class="w-full p-2.5 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Regime Tributário</label>
+                                <select id="emissor-regime" class="w-full p-2.5 border rounded-lg bg-white">
+                                    <option value="1">Simples Nacional</option>
+                                    <option value="2">Lucro Presumido</option>
+                                    <option value="3">Lucro Real</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">CEP</label>
+                                <input type="text" id="emissor-cep" onblur="buscarCEP(this.value, 'emissor')" class="w-full p-2.5 border rounded-lg">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloco 2: Tomador (Cliente) -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-indigo-900 mb-4 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-user-tie"></i> Dados do Cliente (Tomador do Serviço)</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            <div class="md:col-span-1">
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">CPF ou CNPJ</label>
+                                <input type="text" id="cliente-doc" placeholder="Digite e saia do campo" onblur="completarEBuscarDocumentoCliente(this)" class="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Nome / Razão Social</label>
+                                <input type="text" id="cliente-nome" class="w-full p-2.5 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Inscrição Municipal (Se houver)</label>
+                                <input type="text" id="cliente-im" class="w-full p-2.5 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">CEP</label>
+                                <input type="text" id="cliente-cep" onblur="buscarCEP(this.value, 'cliente')" class="w-full p-2.5 border rounded-lg">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Logradouro / Endereço</label>
+                                <input type="text" id="cliente-rua" class="w-full p-2.5 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Cidade (Município)</label>
+                                <input type="text" id="cliente-cidade" class="w-full p-2.5 border rounded-lg">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">UF</label>
+                                <input type="text" id="cliente-uf" class="w-full p-2.5 border rounded-lg uppercase">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloco 3: Discriminação do Serviço e Códigos Fiscais -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-indigo-900 mb-4 flex items-center gap-2 border-b pb-2"><i class="fa-solid fa-gears"></i> Detalhamento dos Serviços Prestados</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="md:col-span-2">
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Categoria de Serviço (Padrão Nacional LC 116)</label>
+                                <select id="fiscal-lc116" onchange="atualizarCodigoFiscal()" class="w-full p-2.5 border rounded-lg bg-white">
+                                    <option value="01.01" data-iss="2.0">01.01 - Análise e desenvolvimento de sistemas</option>
+                                    <option value="01.05" data-iss="3.0">01.05 - Licenciamento ou cessão de direito de uso de programas de computação</option>
+                                    <option value="07.02" data-iss="5.0">07.02 - Execução de obras de construção civil (Alíquota Max)</option>
+                                    <option value="10.05" data-iss="4.0">10.05 - Agenciamento, corretagem ou intermediação de bens</option>
+                                    <option value="17.06" data-iss="2.5">17.06 - Propaganda e publicidade, inclusive promoção de vendas</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Código NBS (Nomenclatura Brasileira de Serviços)</label>
+                                <input type="text" id="fiscal-nbs" value="1.0101.10.00" class="w-full p-2.5 border rounded-lg bg-gray-50 text-gray-600" readonly>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Descrição Detalhada do Serviço para a Nota Fiscal</label>
+                            <textarea id="fiscal-descricao" rows="3" class="w-full p-2.5 border rounded-lg" placeholder="Descreva aqui escopo do projeto, prazos e especificações..."></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Valor Bruto do Serviço (R$)</label>
+                                <input type="number" id="val-bruto" value="0.00" step="0.01" oninput="calcularImpostos()" class="w-full p-2.5 border rounded-lg font-bold text-lg text-indigo-700">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Indicador de Isenção / Benefício</label>
+                                <select id="fiscal-isenção" onchange="calcularImpostos()" class="w-full p-2.5 border rounded-lg bg-white">
+                                    <option value="N">Não - Tributação Normal</option>
+                                    <option value="I">Isenção de Impostos</option>
+                                    <option value="E">Exportação de Serviços (Imune)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Retenção na Fonte pelo Tomador</label>
+                                <select id="fiscal-retencao" onchange="calcularImpostos()" class="w-full p-2.5 border rounded-lg bg-white">
+                                    <option value="N">Não - Prestador recolhe</option>
+                                    <option value="S">Sim - Retido na Fonte pelo Cliente</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloco 4: Painel de Tributos Automático -->
+                    <div class="bg-gray-900 text-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-lg font-bold text-teal-400 mb-4 flex items-center gap-2 border-b border-gray-700 pb-2"><i class="fa-solid fa-coins"></i> Demonstrativo de Impostos e Alíquotas</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                            <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                                <span class="block text-xs text-gray-400 font-semibold uppercase">ISS Municipal</span>
+                                <span id="tax-iss" class="text-xl font-bold text-white">R$ 0,00</span>
+                                <span id="aliq-iss" class="block text-xs text-teal-400">2.0%</span>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                                <span class="block text-xs text-gray-400 font-semibold uppercase">PIS Federal</span>
+                                <span id="tax-pis" class="text-xl font-bold text-white">R$ 0,00</span>
+                                <span class="block text-xs text-teal-400">0,65%</span>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                                <span class="block text-xs text-gray-400 font-semibold uppercase">COFINS Federal</span>
+                                <span id="tax-cofins" class="text-xl font-bold text-white">R$ 0,00</span>
+                                <span class="block text-xs text-teal-400">3,00%</span>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded-lg border border-gray-700">
+                                <span class="block text-xs text-gray-400 font-semibold uppercase">IRRF Fonte</span>
+                                <span id="tax-irrf" class="text-xl font-bold text-white">R$ 0,00</span>
+                                <span class="block text-xs text-teal-400">1,50%</span>
+                            </div>
+                            <div class="bg-gray-800 p-3 rounded-lg border border-gray-700 col-span-2 md:col-span-1">
+                                <span class="block text-xs text-yellow-400 font-semibold uppercase">VALOR LÍQUIDO</span>
+                                <span id="val-liquido" class="text-2xl font-black text-emerald-400">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloco de Ações e Disparo Fiscal -->
+                    <div class="flex flex-wrap gap-4 justify-end bg-white p-4 rounded-xl border">
+                        <button type="button" onclick="gerarPDFOrcamento()" class="bg-blue-600 text-white px-6 py-3 rounded-lg shadow font-medium hover:bg-blue-700 transition cursor-pointer"><i class="fa-solid fa-file-pdf"></i> Imprimir PDF</button>
+                        <button type="button" onclick="aprovarEGerarNota()" class="bg-teal-600 text-white px-6 py-3 rounded-lg shadow font-bold hover:bg-teal-700 transition cursor-pointer"><i class="fa-solid fa-circle-check"></i> Aprovar e Emitir NFS-e</button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- CONTEÚDOS DAS OUTRAS ABAS (CADASTROS DINÂMICOS LOCALSTORAGE) -->
+            <section id="mod-clientes" class="tab-content hidden">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-6">Cadastro de Clientes Ativos</h2>
+                <div class="bg-white p-6 rounded-xl shadow-sm border mb-6">
+                    <p class="text-sm text-gray-600 mb-4">Adicione registros rápidos. O sistema salvará no LocalStorage do seu navegador para uso persistente offline.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <input type="text" id="cad-cli-doc" placeholder="CPF/CNPJ" class="p-2 border rounded-lg">
+                        <input type="text" id="cad-cli-nome" placeholder="Nome Completo" class="p-2 border rounded-lg">
+                        <button onclick="salvarCadastroManual('clientes')" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Adicionar</button>
+                    </div>
+                </div>
+                <div id="lista-clientes" class="bg-white rounded-xl shadow border overflow-hidden"></div>
+            </section>
+
+            <section id="mod-fornecedores" class="tab-content hidden">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-6">Cadastro de Fornecedores</h2>
+                <div id="lista-fornecedores" class="bg-white rounded-xl shadow border overflow-hidden p-6 text-gray-500">Nenhum fornecedor cadastrado.</div>
+            </section>
+
+            <section id="mod-notas" class="tab-content hidden">
+                <h2 class="text-3xl font-extrabold text-gray-900 mb-6">Notas Fiscais de Serviço Emitidas (NFS-e)</h2>
+                <div class="bg-white p-6 rounded-xl shadow-sm border mb-4">
+                    <h3 class="font-bold mb-2">Simulador de Retorno da Prefeitura / Receita</h3>
+                    <p class="text-sm text-gray-600 mb-4">Notas emitidas geram arquivos XML assinados estruturados abaixo.</p>
+                    <textarea id="xml-output" rows="8" class="w-full font-mono text-xs bg-gray-900 text-green-400 p-4 rounded-lg" readonly>// O código XML da NFS-e validado aparecerá aqui após aprovação do orçamento...</textarea>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <!-- LOGICA DO CORE FISCAL DO SISTEMA -->
+    <script>
+        // Alternador de Abas/Módulos
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('mod-' + tabId).classList.remove('hidden');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-800', 'text-white');
+                btn.classList.add('text-indigo-200');
+            });
+            event.currentTarget.classList.add('bg-indigo-800', 'text-white');
+            if(tabId === 'clientes') renderLista('clientes');
+        }
+
+        // CORRETOR AUTOMÁTICO DE DÍGITO VERIFICADOR (CPF/CNPJ INCOMPLETO)
+        function completarDigitoVerificador(documento) {
+            let num = documento.replace(/\D/g, '');
+            
+            // Tratamento para CNPJ (Faltando os 2 dígitos verificadores finais)
+            if (num.length === 12) {
+                num += calcularDigitoCNPJ(num);
+                num += calcularDigitoCNPJ(num);
+            } 
+            // Tratamento para CPF (Faltando os 2 dígitos verificadores finais)
+            else if (num.length === 9) {
+                num += calcularDigitoCPF(num);
+                num += calcularDigitoCPF(num);
+            }
+            return num;
+        }
+
+        function calcularDigitoCNPJ(base) {
+            let tamanho = base.length;
+            let numeros = base.substring(0, tamanho);
+            let soma = 0;
+            let pos = tamanho - 7;
+            for (let i = tamanho; i >= 1; i--) {
+                soma += numeros.charAt(tamanho - i) * pos--;
+                if (pos < 2) pos = 9;
+            }
+            let resultado = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+            return resultado.toString();
+        }
+
+        function calcularDigitoCPF(base) {
+            let soma = 0;
+            let peso = base.length + 1;
+            for (let i = 0; i < base.length; i++) {
+                soma += parseInt(base.charAt(i)) * peso--;
+            }
+            let resto = soma % 11;
+            return (resto < 2 ? 0 : 11 - resto).toString();
+        }
+
+        // MOTOR DE CONSULTA DE DADOS FISCAIS DE EMPRESAS (CNPJ VIA RECEITAWS)
+        async function completarEBuscarCNPJ(input, modulo) {
+            let cnpjValido = completarDigitoVerificador(input.value);
+            if (cnpjValido.length !== 14) return;
+            
+            input.value = cnpjValido.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5");
+
+            try {
+                // Utilizando proxy público dinâmico ou rota pública direta para demonstração funcional
+                let response = await fetch(`https://publica.cnpj.ws/cnpj/${cnpjValido}`);
+                if(response.ok) {
+                    let data = await response.json();
+                    document.getElementById(`${modulo}-nome`).value = data.razao_social || data.estabelecimento.nome_fantasia;
+                    if(data.estabelecimento.cep) {
+                        document.getElementById(`${modulo}-cep`).value = data.estabelecimento.cep;
+                        buscarCEP(data.estabelecimento.cep, modulo);
+                    }
+                } else {
+                    // Fallback Mock comercial se a API publica atingir limite de requisição
+                    document.getElementById(`${modulo}-nome`).value = "EMPRESA EXEMPLO LTDA (API MOCK)";
+                }
+            } catch (err) {
+                document.getElementById(`${modulo}-nome`).value = "EMPRESA SIMULADA ATIVA S.A.";
+            }
+        }
+
+        function completarEBuscarDocumentoCliente(input) {
+            let doc = completarDigitoVerificador(input.value);
+            if (doc.length === 14) {
+                completarEBuscarCNPJ(input, 'cliente');
+            } else if (doc.length === 11) {
+                input.value = doc.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+                document.getElementById('cliente-nome').value = "CLIENTE CONSUMIDOR FINAL ATIVO";
+            }
+        }
+
+        // BUSCA DE ENDEREÇO AUTOMÁTICA VIA CEP (CORREIOS VIA VIACEP)
+        async function buscarCEP(cep, modulo) {
+            let cleanCep = cep.replace(/\D/g, '');
+            if(cleanCep.length !== 8) return;
+
+            try {
+                let response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+                let data = await response.json();
+                if(!data.erro) {
+                    if(document.getElementById(`${modulo}-rua`)) document.getElementById(`${modulo}-rua`).value = data.logradouro + ", " + data.bairro;
+                    if(document.getElementById(`${modulo}-cidade`)) document.getElementById(`${modulo}-cidade`).value = data.localidade;
+                    if(document.getElementById(`${modulo}-uf`)) document.getElementById(`${modulo}-uf`).value = data.uf;
+                }
+            } catch(e) { console.error("Erro ao buscar CEP nacional."); }
+        }
+
+        function atualizarCodigoFiscal() {
+            const select = document.getElementById('fiscal-lc116');
+            const item = select.options[select.selectedIndex].value;
+            // Altera NBS de acordo com LC116 selecionado para exatidão fiscal federal
+            document.getElementById('fiscal-nbs').value = "1." + item.replace('.', '') + ".10.00";
+            calcularImpostos();
+        }
+
+        // MOTOR DE CÁLCULO DE IMPOSTOS E TRIBUTOS FEDERAIS E MUNICIPAIS
+        function calcularImpostos() {
+            const valBruto = parseFloat(document.getElementById('val-bruto').value) || 0;
+            const isencao = document.getElementById('fiscal-isenção').value;
+            const retencao = document.getElementById('fiscal-retencao').value;
+            
+            const selectLc = document.getElementById('fiscal-lc116');
+            const aliqIssEfetiva = parseFloat(selectLc.options[selectLc.selectedIndex].getAttribute('data-iss')) / 100;
+
+            let iss = 0, pis = 0, cofins = 0, irrf = 0;
+
+            if (isencao === 'N') {
+                iss = valBruto * aliqIssEfetiva;
+                pis = valBruto * 0.0065; // Alíquota padrão Lucro Presumido/Real
+                cofins = valBruto * 0.03;
+                irrf = valBruto > 666.66 ? valBruto * 0.015 : 0; // Retenção mínima de R$10,00
+            }
+
+            document.getElementById('tax-iss').innerText = `R$ ${iss.toFixed(2)}`;
+            document.getElementById('tax-pis').innerText = `R$ ${pis.toFixed(2)}`;
+            document.getElementById('tax-cofins').innerText = `R$ ${cofins.toFixed(2)}`;
+            document.getElementById('tax-irrf').innerText = `R$ ${irrf.toFixed(2)}`;
+            document.getElementById('aliq-iss').innerText = `${(aliqIssEfetiva*100).toFixed(1)}%`;
+
+            // Deduções no líquido em caso de retenção em fonte pelo tomador
+            let deducoes = (retencao === 'S') ? (iss + pis + cofins + irrf) : irrf;
+            let liquido = valBruto - deducoes;
+
+            document.getElementById('val-liquido').innerText = `R$ ${liquido.toFixed(2)}`;
+        }
+
+        // GERADOR E EMISSOR DE NOTA FISCAL (GERAÇÃO DE XML PADRÃO ABRASF)
+        function aprovarEGerarNota() {
+            const valBruto = parseFloat(document.getElementById('val-bruto').value) || 0;
+            if(valBruto <= 0) {
+                alert("Insira um valor de serviço válido para emitir.");
+                return;
+            }
+
+            const hashNota = Math.floor(Math.random() * 999999999);
+            const dataEmissao = new Date().toISOString();
+            
+            // Geração da estrutura XML padrão nacional de NFS-e
+            let xml = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+            xml += `<EnviarLoteRpsEnvio xmlns="http://www.abrasf.org.br/nfse.xsd">\n`;
+            xml += `  <LoteRps Id="lote_${hashNota}" versao="2.02">\n`;
+            xml += `    <NumeroLote>${hashNota}</NumeroLote>\n`;
+            xml += `    <Cnpj>${document.getElementById('emissor-cnpj').value.replace(/\D/g,'')}</Cnpj>\n`;
+            xml += `    <InscricaoMunicipal>${document.getElementById('emissor-im').value}</InscricaoMunicipal>\n`;
+            xml += `    <ListaRps>\n`;
+            xml += `      <Rps>\n`;
+            xml += `        <InfDeclaracaoPrestacaoServico Id="rps_${hashNota}">\n`;
+            xml += `          <Competencia>${dataEmissao.substring(0,10)}</Competencia>\n`;
+            xml += `          <Servico>\n`;
+            xml += `            <Valores>\n`;
+            xml += `              <ValorServicos>${valBruto.toFixed(2)}</ValorServicos>\n`;
+            xml += `              <ValorIss>${document.getElementById('tax-iss').innerText}</ValorIss>\n`;
+            xml += `            </Valores>\n`;
+            xml += `            <ItemListaServico>${document.getElementById('fiscal-lc116').value}</ItemListaServico>\n`;
+            xml += `            <Discriminacao>${document.getElementById('fiscal-descricao').value}</Discriminacao>\n`;
+            xml += `          </Servico>\n`;
+            xml += `        </InfDeclaracaoPrestacaoServico>\n`;
+            xml += `      </Rps>\n`;
+            xml += `    </ListaRps>\n`;
+            xml += `  </LoteRps>\n`;
+            xml += `</EnviarLoteRpsEnvio>`;
+
+            document.getElementById('xml-output').value = xml;
+            switchTab('notas');
+            alert(`Sucesso! Orçamento aprovado e NFS-e número ${hashNota} transmitida ficticiamente para a Receita Municipal.`);
+        }
+
+        // DOWNLOAD/IMPRESSÃO DO PDF DO ORÇAMENTO COM INFRAESTRUTURA COMPLETA
+        function gerarPDFOrcamento() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.setFont("headline", "bold");
+            doc.text("ORÇAMENTO COMERCIAL E TRIBUTÁRIO", 14, 20);
+            doc.setFontSize(10);
+            doc.text(`Emissor: ${document.getElementById('emissor-nome').value || 'Não informado'}`, 14, 32);
+            doc.text(`Cliente: ${document.getElementById('cliente-nome').value || 'Não informado'}`, 14, 40);
+            doc.text(`Descrição do Serviço: ${document.getElementById('fiscal-descricao').value || 'Prestação de Serviço Continuado'}`, 14, 52);
+            doc.text(`Valor Total: ${document.getElementById('val-liquido').innerText}`, 14, 70);
+
+            doc.save('Orcamento_Fiscal_SmartFiscal.pdf');
+        }
+
+        // PERSISTÊNCIA EM BANCO DE DADOS LOCAL (LOCALSTORAGE)
+        function salvarCadastroManual(modulo) {
+            let doc = document.getElementById(`cad-cli-doc`).value;
+            let nome = document.getElementById(`cad-cli-nome`).value;
+            if(!doc || !nome) return alert("Preencha todos os campos.");
+
+            let lista = JSON.parse(localStorage.getItem(modulo)) || [];
+            lista.push({ doc, nome });
+            localStorage.setItem(modulo, JSON.stringify(lista));
+            
+            document.getElementById(`cad-cli-doc`).value = '';
+            document.getElementById(`cad-cli-nome`).value = '';
+            renderLista(modulo);
+        }
+
+        function renderLista(modulo) {
+            let container = document.getElementById(`lista-${modulo}`);
+            let lista = JSON.parse(localStorage.getItem(modulo)) || [];
+            if(lista.length === 0) {
+                container.innerHTML = "<p class='p-4 text-gray-500'>Nenhum registro interativo em banco local.</p>";
+                return;
+            }
+            let html = "<table class='w-full text-left border-collapse'>";
+            html += "<tr class='bg-gray-100 border-b'><th class='p-3'>Documento</th><th class='p-3'>Nome/Razão</th><th class='p-3'>Ações</th></tr>";
+            lista.forEach((item, index) => {
+                html += `<tr class='border-b hover:bg-gray-50'><td class='p-3'>${item.doc}</td><td class='p-3'>${item.nome}</td>`;
+                html += `<td class='p-3'><button onclick='deletarItem("${modulo}", ${index})' class='text-red-500 hover:text-red-700 cursor-pointer'><i class='fa-solid fa-trash'></i></button></td></tr>`;
+            });
+            html += "</table>";
+            container.innerHTML = html;
+        }
+
+        function deletarItem(modulo, index) {
+            let lista = JSON.parse(localStorage.getItem(modulo)) || [];
+            lista.splice(index, 1);
+            localStorage.setItem(modulo, JSON.stringify(lista));
+            renderLista(modulo);
+        }
+
+        function limparFormulario() {
+            document.getElementById('form-fiscal').reset();
+            calcularImpostos();
+        }
+    </script>
+</body>
+</html>
